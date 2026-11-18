@@ -76,3 +76,23 @@ test('the picker lists every theme and a press applies one', async ($, on) => {
   expect(setCount).toBe(1)
   await ui.unmount()
 })
+
+test('a choice saved by the old version (palette/scene/text) carries over', async ($, on) => {
+  const stored: Record<string, unknown> = { settings: { palette: 'hypr', scene: 'hypr-night', text: 'terminal' } }
+  on('command.register', () => ({ value: { command: 'looks' } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('theme.set', () => ({ value: { isDrawn: true, requestId: 'r1' } }))
+  on('store.get', (_, e) => ({ value: stored[e.key] }))
+  on('store.set', (_, e) => {
+    stored[e.key] = e.value
+    return { value: undefined }
+  })
+  on('store.delete', (_, e) => {
+    delete stored[e.key]
+    return { value: undefined }
+  })
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  expect(stored.active).toBe('hypr-mono')
+  expect(stored.settings).toBe(undefined)
+})

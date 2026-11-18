@@ -18,13 +18,16 @@ const H = 140
 
 /** A 260x140 card: optional scene art behind a little pixel chat window. */
 export function previewCard(p: PreviewPalette, art?: string): string {
-  const bg = art ?? `<rect width="320" height="180" fill="${p.page}"/>`
+  // The scene keeps its own viewBox, so art drawn at any size fills the card.
+  const bg = art === undefined
+    ? `<rect width="${W}" height="${H}" fill="${p.page}"/>`
+    : art.replace(/^\s*<svg /, `<svg x="0" y="0" width="${W}" height="${H}" `)
   const line = (x: number, y: number, w: number, c: string) =>
     `<rect x="${x}" y="${y}" width="${w}" height="4" fill="${c}"/>`
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" shape-rendering="crispEdges">
-<svg x="0" y="0" width="${W}" height="${H}" viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice">${stripOuter(bg)}</svg>
-<g>
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+${bg}
+<g shape-rendering="crispEdges">
   <rect x="12" y="12" width="150" height="116" fill="${p.panel}" fill-opacity="0.88"/>
   <rect x="12" y="12" width="150" height="2" fill="${p.border}"/>
   <rect x="12" y="126" width="150" height="2" fill="${p.border}"/>
@@ -42,12 +45,6 @@ export function previewCard(p: PreviewPalette, art?: string): string {
   <rect x="28" y="107" width="4" height="4" fill="${p.accent}">${op('1;0', 1, 0, DISCRETE)}</rect>
 </g>
 </svg>`
-}
-
-/** Removes an outer `<svg ...>` wrapper so the body can be nested. */
-function stripOuter(svg: string): string {
-  const m = svg.match(/^\s*<svg[^>]*>([\s\S]*)<\/svg>\s*$/)
-  return m?.[1] ?? svg
 }
 
 /** Small deterministic random generator, so scenes are the same every load. */

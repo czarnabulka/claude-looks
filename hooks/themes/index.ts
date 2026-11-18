@@ -3,6 +3,8 @@ import { previewCard } from './preview'
 import { midnightKingdom } from './midnight-kingdom'
 import { frostpineHollow } from './frostpine-hollow'
 import { sakuraNight } from './sakura-night'
+import { ashenGold, ashenTree } from './ashen-gold'
+import { hyprMono, hyprNight, terminal } from './terminal'
 
 export type { LookTheme } from './types'
 
@@ -30,9 +32,19 @@ const appDefault: LookTheme = {
  *   2. import it here and add it to this list.
  * The /looks picker shows them in this order.
  */
-export const THEMES: readonly LookTheme[] = [appDefault, midnightKingdom, frostpineHollow, sakuraNight]
+export const THEMES: readonly LookTheme[] = [
+  appDefault,
+  ashenGold,
+  ashenTree,
+  hyprNight,
+  hyprMono,
+  terminal,
+  midnightKingdom,
+  frostpineHollow,
+  sakuraNight,
+]
 
 export function findTheme(query: string): LookTheme | undefined {
-  const q = query.trim().toLowerCase()
-  return THEMES.find(t => t.id === q || t.name.toLowerCase() === q)
+  const q = query.trim().toLowerCase().replace(/\s+/g, '-')
+  return THEMES.find(t => t.id === q || t.name.toLowerCase().replace(/\s+/g, '-') === q || t.aliases?.includes(q) === true)
 }

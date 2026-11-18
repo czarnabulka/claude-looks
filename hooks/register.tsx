@@ -1,14 +1,30 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
+import { terminalText } from './terminal'
 import { THEMES, findTheme } from './themes'
 import type { LookTheme } from './themes'
 
 const PANE = 'looks'
 const STORE_KEY = 'active'
 
-/** The id of the theme in use, so the picker redraws when it changes. */
+/** The id of the theme in use, so the picker and the chat redraw when it changes. */
 const active = atom({ plugin: 'looks', key: 'active' } as const, 'default')
+
+/** Before 0.5 the mod stored `{ palette, scene, text }`; map it to a theme. */
+function fromOldSettings(old: unknown): LookTheme | undefined {
+  if (typeof old !== 'object' || old === null) {
+    return undefined
+  }
+  const o = old as Record<string, unknown>
+  if (o.palette === 'terminal') {
+    return findTheme('terminal')
+  }
+  if (o.palette === 'hypr') {
+    return findTheme(o.text === 'terminal' ? 'hypr-mono' : 'hypr-night')
+  }
+  return findTheme(o.scene === 'great-tree' ? 'great-tree' : 'ashfall')
+}
 
 async function apply($: EngineInterface, theme: LookTheme, announce: boolean): Promise<string> {
   let message: string
@@ -34,14 +50,26 @@ async function apply($: EngineInterface, theme: LookTheme, announce: boolean): P
   return message
 }
 
+/** The active theme's terminal colors, if it draws the chat as a terminal. */
+async function monoOf($: EngineInterface): Promise<LookTheme['mono']> {
+  return findTheme(await read($, active))?.mono
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'looks',
       description: 'Choose a theme (or /looks <name> to switch directly)',
+      argumentHint: '[ashen | tree | hypr | hypr-mono | terminal | midnight-kingdom | frostpine-hollow | sakura-night | default]',
     })
     const saved = await $.store.get(STORE_KEY)
-    const theme = typeof saved === 'string' ? findTheme(saved) : undefined
+    let theme = typeof saved === 'string' ? findTheme(saved) : undefined
+    if (saved === undefined) {
+      theme = fromOldSettings(await $.store.get('settings'))
+      if (theme !== undefined) {
+        await $.store.delete('settings')
+      }
+    }
     if (theme !== undefined && theme.look !== null) {
       await apply($, theme, false)
     }
@@ -131,6 +159,55 @@ export const register: Register = on => {
             </Box>
           )
         })}
+      </Box>
+    )
+  })
+
+  // ---------- the terminal text style (Terminal, Hypr Night · Monospace)
+
+  on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
+    if ((e.surface !== 'desktop' && e.surface !== 'mobile') || !e.props.isExpanded) {
+      return next(e)
+    }
+    const mono = await monoOf($)
+    if (mono === undefined) {
+      return next(e)
+    }
+    const { Box, Text } = $.ui.resolve(e)
+    return (
+      <Box flexDirection="row">
+        <Text mono color={mono.accent}>{'❯ '}</Text>
+        <Text mono dimColor>{e.props.text}</Text>
+      </Box>
+    )
+  })
+
+  on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => {
+    if (e.surface !== 'desktop' && e.surface !== 'mobile') {
+      return next(e)
+    }
+    const mono = await monoOf($)
+    if (mono === undefined) {
+      return next(e)
+    }
+    const { Box, Text } = $.ui.resolve(e)
+    return terminalText(e.props.text, { Box, Text }, e.props.isFirstOfReply, mono.accent)
+  })
+
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    if ((e.surface !== 'desktop' && e.surface !== 'mobile') || e.props.hasSurvey) {
+      return next(e)
+    }
+    const mono = await monoOf($)
+    if (mono === undefined) {
+      return next(e)
+    }
+    const { Box, Text } = $.ui.resolve(e)
+    return (
+      <Box flexDirection="row">
+        <Text mono color={mono.accent}>{'▚▞ '}</Text>
+        <Text mono color={mono.label}>{mono.name}</Text>
+        <Text mono dimColor>{'  ·  /looks to change'}</Text>
       </Box>
     )
   })

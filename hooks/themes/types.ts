@@ -19,6 +19,10 @@ export type LookTheme = {
   preview: string
   /** A few hex colors, drawn as blocks where SVG can't be shown (terminal). */
   swatch: string[]
+  /** Other words `/looks <word>` accepts for this theme. */
+  aliases?: string[]
+  /** Set for themes that draw the chat as a terminal: monospace messages and a band above the prompt. */
+  mono?: { accent: string; label: string; name: string }
   /** Contrast notes from makeColors, surfaced while developing. */
   problems?: string[]
 }
