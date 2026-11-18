@@ -1,6 +1,6 @@
 import { makeColors } from '../make-colors.js'
 import type { LookTheme } from './types'
-import { previewCard, px, rng } from './preview'
+import { DISCRETE, hold, num, op, previewCard, px, rng, smilify, tf } from './preview'
 
 /**
  * Frostpine Hollow: the snowy stretch of a dark-world journey. Falling snow
@@ -50,6 +50,43 @@ function pine(cx: number, baseY: number, size: number, body: string, snow: strin
     top -= rows * 2 - Math.ceil(rows * 0.8)
   }
   return out
+}
+
+const LAYER: Record<string, { fall: number; sway: number; opacity: string }> = {
+  far: { fall: 22, sway: 8, opacity: '.55' },
+  mid: { fall: 14, sway: 6, opacity: '.8' },
+  near: { fall: 8, sway: 4.4, opacity: '1' },
+}
+
+/** The animation tags for an element with these classes. */
+function animate(c: string[]): string {
+  switch (c[0]) {
+    case 'tw':
+      return op('.9;.55;.2;.55', 3, num(c, 'd') * 0.8, DISCRETE)
+    case 'aur': {
+      const k = num(c, 'a')
+      const dur = [18, 24, 30][k] ?? 18
+      return op('.2;.5;.25;.5;.2', dur, k * 3) + tf('translate', '0 0;-36 0;0 0', dur, k * 3)
+    }
+    case 'win':
+      return op('1;1;.75;1;1;.85', 5, 0, DISCRETE)
+    case 'glow':
+      return op('.6;.75;.9;1;.9;.75', 5.2, 0, DISCRETE)
+    case 'smoke': {
+      const b = num(c, 's') * 0.83
+      return op('0;.7;0', 5, b, ' keyTimes="0;.1;1"') + tf('translate', '0 0;14 -46', 5, b)
+    }
+    case 'fall': {
+      const l = LAYER[c[1] ?? 'near'] ?? { fall: 8, sway: 4.4, opacity: '1' }
+      return hold('opacity', l.opacity) + tf('translate', '0 0;0 180', l.fall)
+    }
+    case 'sway': {
+      const l = LAYER[c[1] ?? 'near'] ?? { fall: 8, sway: 4.4, opacity: '1' }
+      return tf('translate', '-3 0;-1 0;1 0;3 0;1 0;-1 0', l.sway, 0, DISCRETE)
+    }
+    default:
+      return ''
+  }
 }
 
 function scene(): string {
@@ -171,34 +208,15 @@ function scene(): string {
       tile += px(fx, fy, size, size, C.flake)
     }
     const id = `t-${cls.replace(' ', '-')}`
-    return `<g class="${cls}"><g class="sway"><g id="${id}">${tile}</g><use href="#${id}" y="-180"/></g></g>`
+    return `<g class="${cls}"><g class="sway ${cls.split(' ')[1]}"><g id="${id}">${tile}</g><use href="#${id}" y="-180"/></g></g>`
   }
   parts.push(layer(70, 1, 'fall far'), layer(40, 1, 'fall mid'), layer(18, 2, 'fall near'))
 
-  const css = `
-.tw{animation:tw 3s steps(3,end) infinite}
-@keyframes tw{0%,100%{opacity:.9}50%{opacity:.2}}
-.d1{animation-delay:-.8s}.d2{animation-delay:-1.6s}.d3{animation-delay:-2.4s}
-.aur{animation:aur 9s steps(18,end) infinite alternate;opacity:.35}
-.a1{animation-duration:12s;animation-delay:-3s}.a2{animation-duration:15s;animation-delay:-6s}
-@keyframes aur{0%{transform:translateX(0);opacity:.2}50%{opacity:.5}100%{transform:translateX(-36px);opacity:.25}}
-.win{animation:win 5s steps(1,end) infinite}
-@keyframes win{0%,100%{opacity:1}30%{opacity:.75}33%{opacity:1}64%{opacity:.85}}
-.glow{animation:glow 2.6s steps(4,end) infinite alternate}
-@keyframes glow{from{opacity:.6}to{opacity:1}}
-.smoke{animation:smoke 5s steps(25,end) infinite;opacity:0}
-@keyframes smoke{0%{transform:translate(0,0);opacity:0}10%{opacity:.7}100%{transform:translate(14px,-46px);opacity:0}}
-.s1{animation-delay:-.83s}.s2{animation-delay:-1.66s}.s3{animation-delay:-2.5s}.s4{animation-delay:-3.33s}.s5{animation-delay:-4.16s}
-.fall{animation:fall linear infinite}
-.far{animation-duration:22s;opacity:.55}.mid{animation-duration:14s;opacity:.8}.near{animation-duration:8s}
-@keyframes fall{from{transform:translateY(0)}to{transform:translateY(180px)}}
-.sway{animation:sway 4s steps(4,end) infinite alternate}
-.mid .sway{animation-duration:3s}.near .sway{animation-duration:2.2s}
-@keyframes sway{from{transform:translateX(-3px)}to{transform:translateX(3px)}}
-@media (prefers-reduced-motion:reduce){*{animation:none!important}.smoke{opacity:.4}}
-`
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges"><style>${css}</style>${parts.join('')}</svg>`
+  return smilify(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges">${parts.join('')}</svg>`,
+    animate,
+  )
 }
 
 const { theme, problems } = makeColors({

@@ -1,6 +1,6 @@
 import { makeColors } from '../make-colors.js'
 import type { LookTheme } from './types'
-import { previewCard, px, rng, roof } from './preview'
+import { DISCRETE, num, op, previewCard, px, rng, roof, smilify, tf } from './preview'
 
 /**
  * Midnight Kingdom: a dark-world, 16-bit RPG night. Pixel stars, a distant
@@ -27,6 +27,33 @@ const C = {
   floorEdge: '#6b3cff',
   mote: '#c9b8ff',
   flag: '#ff3b8d',
+}
+
+/** The animation tags for an element with these classes. */
+function animate(c: string[]): string {
+  const floorSteps = Array.from({ length: 20 }, (_, i) => `${-i} 0`).join(';')
+  switch (c[0]) {
+    case 'tw':
+      return op('1;.55;.15;.55', 3.2, num(c, 'd') * 0.7, DISCRETE)
+    case 'spk':
+      return op('0;.35;1;1;.35;0', 5, num(c, 'd') * 0.7, DISCRETE)
+    case 'win':
+      return op('1;1;.55;1;1;.8;1', 4, [0, 1, 2.3, 3.1][num(c, 'w')] ?? 0, DISCRETE)
+    case 'flagA':
+      return op('1;0', 0.8, 0, DISCRETE)
+    case 'flagB':
+      return op('0;1', 0.8, 0, DISCRETE)
+    case 'pillar':
+      return op('.55;.68;.82;.95;.82;.68', 4.8, 0, DISCRETE)
+    case 'rise': {
+      const b = num(c, 'r') * 0.9
+      return op('0;1;.8;0', 6, b, ' keyTimes="0;.1;.8;1"') + tf('translate', '0 0;0 -130', 6, b)
+    }
+    case 'floor':
+      return tf('translate', floorSteps, 2, 0, DISCRETE)
+    default:
+      return ''
+  }
 }
 
 function scene(): string {
@@ -134,30 +161,11 @@ function scene(): string {
   // floor shading (closer = darker)
   parts.push(`<rect x="-40" y="168" width="400" height="20" fill="#05020b" fill-opacity="0.45"/>`)
 
-  const css = `
-.tw{animation:tw 3.2s steps(3,end) infinite}
-@keyframes tw{0%,100%{opacity:1}50%{opacity:.15}}
-.spk{animation:spk 5s steps(5,end) infinite}
-@keyframes spk{0%,100%{opacity:0;transform:scale(.4)}45%,55%{opacity:1;transform:scale(1)}}
-.d0{animation-delay:0s}.d1{animation-delay:-.7s}.d2{animation-delay:-1.4s}
-.d3{animation-delay:-2.1s}.d4{animation-delay:-2.8s}.d5{animation-delay:-3.5s}
-.win{animation:win 4s steps(1,end) infinite}
-@keyframes win{0%,100%{opacity:1}40%{opacity:.55}43%{opacity:1}70%{opacity:.8}}
-.w1{animation-delay:-1s}.w2{animation-delay:-2.3s}.w3{animation-delay:-3.1s}
-.flagA{animation:fa .8s steps(1,end) infinite}.flagB{animation:fb .8s steps(1,end) infinite}
-@keyframes fa{0%{opacity:1}50%{opacity:0}}@keyframes fb{0%{opacity:0}50%{opacity:1}}
-.pillar{animation:pl 2.4s steps(4,end) infinite alternate}
-@keyframes pl{from{opacity:.55}to{opacity:.95}}
-.rise{animation:rise 6s steps(48,end) infinite;opacity:0}
-@keyframes rise{0%{transform:translateY(0);opacity:0}10%{opacity:1}80%{opacity:.8}100%{transform:translateY(-130px);opacity:0}}
-.r1{animation-delay:-.9s}.r2{animation-delay:-1.8s}.r3{animation-delay:-2.7s}
-.r4{animation-delay:-3.6s}.r5{animation-delay:-4.5s}.r6{animation-delay:-5.4s}
-.floor{animation:fl 2s steps(20,end) infinite}
-@keyframes fl{from{transform:translateX(0)}to{transform:translateX(-20px)}}
-@media (prefers-reduced-motion:reduce){*{animation:none!important}.rise{opacity:.7}}
-`
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges"><style>${css}</style>${parts.join('')}</svg>`
+  return smilify(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges">${parts.join('')}</svg>`,
+    animate,
+  )
 }
 
 const { theme, problems } = makeColors({

@@ -39,9 +39,8 @@ export function previewCard(p: PreviewPalette, art?: string): string {
   ${line(28, 74, 22, p.code[0])}${line(54, 74, 26, p.code[1])}
   <rect x="22" y="100" width="130" height="18" fill="${p.page}" fill-opacity="0.9"/>
   <rect x="22" y="100" width="130" height="2" fill="${p.accent}"/>
-  <rect x="28" y="107" width="4" height="4" fill="${p.accent}" class="cur"/>
+  <rect x="28" y="107" width="4" height="4" fill="${p.accent}">${op('1;0', 1, 0, DISCRETE)}</rect>
 </g>
-<style>.cur{animation:blink 1s steps(1) infinite}@keyframes blink{50%{opacity:0}}</style>
 </svg>`
 }
 
@@ -72,4 +71,51 @@ export function roof(cx: number, baseY: number, halfW: number, fill: string, ste
     out += px(cx - halfW + i, baseY - (i + 1) * step, w, step, fill)
   }
   return out
+}
+
+/*
+ * SMIL animation. The app does not run a scene's <style> animations, so
+ * scenes animate with SVG's own <animate>/<animateTransform> tags instead.
+ * A scene tags elements with classes, and `smilify` gives each tagged
+ * element the animation tags its theme's `anim` function returns.
+ */
+
+const REPEAT = 'repeatCount="indefinite"'
+const at = (begin: number) => `begin="${begin === 0 ? 0 : -Math.abs(begin)}s"`
+
+/** Animate opacity through `values` (`;`-separated) over `dur` seconds. */
+export const op = (values: string, dur: number, begin = 0, extra = '') =>
+  `<animate attributeName="opacity" values="${values}" dur="${dur}s" ${at(begin)} ${REPEAT}${extra}/>`
+
+/** Animate a transform (`translate`, `rotate`, `scale`) through `values`. */
+export const tf = (type: string, values: string, dur: number, begin = 0, extra = '') =>
+  `<animateTransform attributeName="transform" type="${type}" values="${values}" dur="${dur}s" ${at(begin)} ${REPEAT}${extra}/>`
+
+/** Holds an attribute at one value. */
+export const hold = (attr: string, to: string) => `<set attributeName="${attr}" to="${to}"/>`
+
+export const DISCRETE = ' calcMode="discrete"'
+/** Ease in and out between each pair of values (`n` values). */
+export const ease = (n: number) =>
+  ` calcMode="spline" keyTimes="${Array.from({ length: n }, (_, i) => +(i / (n - 1)).toFixed(4)).join(';')}" keySplines="${Array.from({ length: n - 1 }, () => '.42 0 .58 1').join(';')}"`
+
+/** The number after `prefix` in one of `classes` (`d3` → 3), else 0. */
+export const num = (classes: string[], prefix: string): number => {
+  const hit = classes.find(c => c.startsWith(prefix) && /^\d+$/.test(c.slice(prefix.length)))
+  return hit === undefined ? 0 : Number(hit.slice(prefix.length))
+}
+
+/** Drops any stylesheet and inline styles, and puts each classed element's animation tags inside it. */
+export function smilify(svg: string, anim: (classes: string[]) => string): string {
+  return svg
+    .replace(/<style>[\s\S]*?<\/style>/g, '')
+    .replace(/ style="[^"]*"/g, '')
+    .replace(/<(\w+)([^<>]*?) class="([^"]+)"([^<>]*?)(\/?)>/g, (_m, tag: string, a: string, cls: string, b: string, closed: string) => {
+      const open = `<${tag}${a}${b}>`
+      const kids = anim(cls.split(/\s+/))
+      if (closed === '/') {
+        return kids === '' ? `<${tag}${a}${b}/>` : `${open}${kids}</${tag}>`
+      }
+      return `${open}${kids}`
+    })
 }

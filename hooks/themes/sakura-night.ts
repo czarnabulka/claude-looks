@@ -1,6 +1,6 @@
 import { makeColors } from '../make-colors.js'
 import type { LookTheme } from './types'
-import { previewCard, rng } from './preview'
+import { ease, num, op, previewCard, rng, smilify, tf } from './preview'
 
 /**
  * Sakura Night: a smooth (not pixel) scene. A dark plum night, a soft moon
@@ -23,6 +23,49 @@ function cluster(cx: number, cy: number, n: number, r: () => number): string {
     out += `<use href="#fl" transform="translate(${x} ${y}) scale(${s}) rotate(${Math.floor(r() * 72)})" fill="${fill}"/>`
   }
   return out
+}
+
+const PATHS = [
+  { values: '0 0;-14 50;-6 100;-30 150;-40 200', keyTimes: '0;.25;.5;.75;1' },
+  { values: '0 0;-26 60;-18 120;-60 200', keyTimes: '0;.3;.6;1' },
+  { values: '0 0;-8 70;-34 130;-30 200', keyTimes: '0;.35;.65;1' },
+]
+
+/** The animation tags for an element with these classes. */
+function animate(c: string[]): string {
+  switch (c[0]) {
+    case 'tw':
+      return op('.85;.2;.85', 4, num(c, 'd'), ease(3))
+    case 'halo':
+      return op('.75;1;.75', 14, 0, ease(3))
+    case 'ripple':
+      return tf('translate', '-2 0;2 0;-2 0', 10, num(c, 'd'), ease(3))
+    case 'sway':
+      return tf('rotate', '-1.2 -20 -6;1.2 -20 -6;-1.2 -20 -6', 16, 0, ease(3))
+    case 'sway2':
+      return tf('rotate', '1.5 345 70;-1.5 345 70;1.5 345 70', 14, 0, ease(3))
+    case 'bob':
+      return tf('translate', '0 -.6;0 .6;0 -.6', 12, num(c, 'd'), ease(3))
+    case 'fall': {
+      const path = PATHS[num(c, 'f')] ?? { values: '0 0;-40 200', keyTimes: '0;1' }
+      const dur = [9, 10.75, 12.5, 14.25, 16][num(c, 'fd')] ?? 12
+      const b = num(c, 'dl')
+      return (
+        tf('translate', path.values, dur, b, ` keyTimes="${path.keyTimes}"`) +
+        op('0;.9;.9;0', dur, b, ' keyTimes="0;.06;.92;1"')
+      )
+    }
+    case 'tumble': {
+      const dur = [2, 2.75, 3.5, 4.25, 5][num(c, 'sp')] ?? 3
+      const b = num(c, 'dl')
+      return (
+        tf('rotate', '0;360', dur, b) +
+        tf('scale', '1 1;1 .35;1 1;1 .35;1 1', dur, b, ' additive="sum"')
+      )
+    }
+    default:
+      return ''
+  }
 }
 
 function scene(): string {
@@ -117,9 +160,8 @@ function scene(): string {
     )
   }
 
-  // Falling petals: each drifts down and left while tumbling. Timing comes
-  // from classes in the stylesheet (fd = fall speed, sp = spin speed,
-  // dl = start offset), so nothing depends on inline style attributes.
+  // Falling petals: each drifts down and left while tumbling. Its classes pick
+  // the path (f), fall speed (fd), spin speed (sp) and start offset (dl).
   for (let i = 0; i < 42; i++) {
     const x = (r() * 400 - 20).toFixed(1)
     const dl = Math.floor(r() * 14)
@@ -133,38 +175,12 @@ function scene(): string {
     )
   }
 
-  const timing = [
-    ...[9, 10.75, 12.5, 14.25, 16].map((d, i) => `.fd${i}{animation-duration:${d}s}`),
-    ...[2, 2.75, 3.5, 4.25, 5].map((d, i) => `.sp${i}{animation-duration:${d}s}`),
-    ...Array.from({ length: 14 }, (_, i) => `.dl${i}{animation-delay:-${i}s}`),
-  ].join('')
 
-  const css = `
-.tw{animation:tw 4s ease-in-out infinite}
-@keyframes tw{0%,100%{opacity:.85}50%{opacity:.2}}
-.d1{animation-delay:-1s}.d2{animation-delay:-2s}.d3{animation-delay:-3s}
-.halo{animation:halo 7s ease-in-out infinite alternate;transform-origin:236px 44px}
-@keyframes halo{from{opacity:.75;transform:scale(.96)}to{opacity:1;transform:scale(1.05)}}
-.ripple{animation:rip 5s ease-in-out infinite alternate}
-@keyframes rip{from{transform:translateX(-2px)}to{transform:translateX(2px)}}
-.sway{transform-origin:-20px -6px;animation:sway 8s ease-in-out infinite alternate}
-@keyframes sway{from{transform:rotate(-1.2deg)}to{transform:rotate(1.2deg)}}
-.sway2{transform-origin:345px 70px;animation:sway2 7s ease-in-out infinite alternate}
-@keyframes sway2{from{transform:rotate(1.5deg)}to{transform:rotate(-1.5deg)}}
-.bob{animation:bob 6s ease-in-out infinite alternate}
-@keyframes bob{from{transform:translateY(-.6px)}to{transform:translateY(.6px)}}
-.fall{animation:fall0 12s linear infinite}
-.f1{animation-name:fall1}.f2{animation-name:fall2}
-@keyframes fall0{0%{transform:translate(0,0);opacity:0}6%{opacity:.95}25%{transform:translate(-14px,50px)}50%{transform:translate(-6px,100px)}75%{transform:translate(-30px,150px)}92%{opacity:.9}100%{transform:translate(-40px,200px);opacity:0}}
-@keyframes fall1{0%{transform:translate(0,0);opacity:0}6%{opacity:.9}30%{transform:translate(-26px,60px)}60%{transform:translate(-18px,120px)}100%{transform:translate(-60px,200px);opacity:0}}
-@keyframes fall2{0%{transform:translate(0,0);opacity:0}6%{opacity:.85}35%{transform:translate(-8px,70px)}65%{transform:translate(-34px,130px)}100%{transform:translate(-30px,200px);opacity:0}}
-.tumble{animation:tumble 3s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
-@keyframes tumble{0%{transform:rotate(0) scaleY(1)}25%{transform:rotate(90deg) scaleY(.35)}50%{transform:rotate(180deg) scaleY(1)}75%{transform:rotate(270deg) scaleY(.35)}100%{transform:rotate(360deg) scaleY(1)}}
-${timing}
-@media (prefers-reduced-motion:reduce){*{animation:none!important}.fall{opacity:.7}}
-`
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice"><style>${css}</style>${parts.join('')}</svg>`
+  return smilify(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice">${parts.join('')}</svg>`,
+    animate,
+  )
 }
 
 const { theme, problems } = makeColors({

@@ -1,6 +1,6 @@
 {
   "name": "looks",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Theme manager with a /looks picker and animated themes: Midnight Kingdom, Frostpine Hollow, Sakura Night",
   "types": "./types/index.d.ts",
   "license": "MIT"
