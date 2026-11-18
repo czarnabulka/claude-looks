@@ -4,7 +4,7 @@ import { midnightKingdom } from './midnight-kingdom'
 import { frostpineHollow } from './frostpine-hollow'
 import { sakuraNight } from './sakura-night'
 import { ashenGold, ashenTree } from './ashen-gold'
-import { hyprMono, hyprNight, terminal } from './terminal'
+import { hyprNight, terminal } from './terminal'
 
 export type { LookTheme } from './types'
 
@@ -37,12 +37,24 @@ export const THEMES: readonly LookTheme[] = [
   ashenGold,
   ashenTree,
   hyprNight,
-  hyprMono,
   terminal,
   midnightKingdom,
   frostpineHollow,
   sakuraNight,
 ]
+
+/** The Monospace text style's colors for a theme: its own, else from its swatch. */
+export function monoColors(theme: LookTheme | undefined): { accent: string; label: string; name: string } {
+  if (theme?.mono !== undefined) {
+    return theme.mono
+  }
+  const swatch = theme?.swatch ?? []
+  return {
+    accent: swatch[2] ?? '#d08770',
+    label: swatch[3] ?? swatch[2] ?? '#c9a85e',
+    name: theme === undefined || theme.id === 'default' ? 'mono' : theme.id,
+  }
+}
 
 export function findTheme(query: string): LookTheme | undefined {
   const q = query.trim().toLowerCase().replace(/\s+/g, '-')

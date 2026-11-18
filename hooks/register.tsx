@@ -1,29 +1,56 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
+import type { TextStyle } from '../types'
 import { terminalText } from './terminal'
-import { THEMES, findTheme } from './themes'
+import { THEMES, findTheme, monoColors } from './themes'
 import type { LookTheme } from './themes'
 
 const PANE = 'looks'
 const STORE_KEY = 'active'
+const TEXT_KEY = 'text'
 
 /** The id of the theme in use, so the picker and the chat redraw when it changes. */
 const active = atom({ plugin: 'looks', key: 'active' } as const, 'default')
+/** Normal or Monospace messages: chosen apart from the theme, works with every theme. */
+const textStyle = atom({ plugin: 'looks', key: 'text' } as const, 'normal')
 
-/** Before 0.5 the mod stored `{ palette, scene, text }`; map it to a theme. */
-function fromOldSettings(old: unknown): LookTheme | undefined {
+const TEXT_STYLES: { id: TextStyle; name: string; sample: string; words: string[] }[] = [
+  { id: 'normal', name: 'Normal font', sample: 'Messages in the app’s regular font.', words: ['normal', 'normal-text', 'sans', 'regular'] },
+  { id: 'mono', name: 'Monospace', sample: '❯ messages drawn like a terminal', words: ['mono', 'monospace', 'terminal-text'] },
+]
+
+function asTextStyle(value: unknown): TextStyle {
+  return value === 'mono' ? 'mono' : 'normal'
+}
+
+/**
+ * Older choices: before 0.5 the mod stored `{ palette, scene, text }`, and 0.5
+ * had a separate "Hypr Night · Monospace" theme. Map both to theme + text style.
+ */
+function fromOldSettings(old: unknown): { theme: LookTheme | undefined; text: TextStyle } | undefined {
   if (typeof old !== 'object' || old === null) {
     return undefined
   }
   const o = old as Record<string, unknown>
+  const text: TextStyle = o.text === 'terminal' ? 'mono' : 'normal'
   if (o.palette === 'terminal') {
-    return findTheme('terminal')
+    return { theme: findTheme('terminal'), text: 'mono' }
   }
   if (o.palette === 'hypr') {
-    return findTheme(o.text === 'terminal' ? 'hypr-mono' : 'hypr-night')
+    return { theme: findTheme('hypr-night'), text }
   }
-  return findTheme(o.scene === 'great-tree' ? 'great-tree' : 'ashfall')
+  return { theme: findTheme(o.scene === 'great-tree' ? 'great-tree' : 'ashfall'), text }
+}
+
+async function setText($: EngineInterface, style: TextStyle, announce: boolean): Promise<string> {
+  await update($, textStyle, () => style)
+  await $.store.set(TEXT_KEY, style)
+  const message = style === 'mono' ? 'Text style: Monospace' : 'Text style: Normal font'
+  if (announce) {
+    $.ui.toast(message)
+  }
+  return message
 }
 
 async function apply($: EngineInterface, theme: LookTheme, announce: boolean): Promise<string> {
@@ -50,9 +77,12 @@ async function apply($: EngineInterface, theme: LookTheme, announce: boolean): P
   return message
 }
 
-/** The active theme's terminal colors, if it draws the chat as a terminal. */
+/** The monospace colors to draw with, or undefined while the text style is Normal. */
 async function monoOf($: EngineInterface): Promise<LookTheme['mono']> {
-  return findTheme(await read($, active))?.mono
+  if (asTextStyle(await read($, textStyle)) !== 'mono') {
+    return undefined
+  }
+  return monoColors(findTheme(await read($, active)))
 }
 
 export const register: Register = on => {
@@ -60,28 +90,42 @@ export const register: Register = on => {
     await $.command.register({
       name: 'looks',
       description: 'Choose a theme (or /looks <name> to switch directly)',
-      argumentHint: '[ashen | tree | hypr | hypr-mono | terminal | midnight-kingdom | frostpine-hollow | sakura-night | default]',
+      argumentHint: '[ashen | tree | hypr | terminal | midnight-kingdom | frostpine-hollow | sakura-night | default | normal | mono]',
     })
     const saved = await $.store.get(STORE_KEY)
     let theme = typeof saved === 'string' ? findTheme(saved) : undefined
-    if (saved === undefined) {
-      theme = fromOldSettings(await $.store.get('settings'))
-      if (theme !== undefined) {
+    let text = asTextStyle(await $.store.get(TEXT_KEY))
+    if (saved === 'hypr-mono') {
+      // 0.5's "Hypr Night · Monospace" is now Hypr Night + the Monospace text style.
+      theme = findTheme('hypr-night')
+      text = 'mono'
+    } else if (saved === undefined) {
+      const old = fromOldSettings(await $.store.get('settings'))
+      if (old !== undefined) {
+        theme = old.theme
+        text = old.text
         await $.store.delete('settings')
       }
     }
     if (theme !== undefined && theme.look !== null) {
       await apply($, theme, false)
     }
+    await setText($, text, false)
     return next(e)
   })
 
   on('command.run', { command: 'looks' }, async ($, e) => {
-    const arg = e.args.trim()
+    const arg = e.args.trim().toLowerCase()
     if (arg !== '') {
+      const style = TEXT_STYLES.find(s => s.words.includes(arg))
+      if (style !== undefined) {
+        return { text: await setText($, style.id, false) }
+      }
       const theme = findTheme(arg)
       if (theme === undefined) {
-        return { text: `No theme "${arg}". Available: ${THEMES.map(t => t.id).join(', ')}` }
+        return {
+          text: `No theme "${arg}". Themes: ${THEMES.map(t => t.id).join(', ')}. Text: normal, mono.`,
+        }
       }
       return { text: await apply($, theme, false) }
     }
@@ -108,9 +152,51 @@ export const register: Register = on => {
     const { Box, Text, Button } = table
     const Svg = 'Svg' in table ? table.Svg : undefined
     const current = await read($, active)
+    const text = asTextStyle(await read($, textStyle))
+    const accent = monoColors(findTheme(current)).accent
 
     return (
       <Box flexDirection="column" gap={1} padding={1}>
+        <Text bold>Text style</Text>
+        <Text dimColor>Works with every theme.</Text>
+        <Box flexDirection="row" gap={1}>
+          {TEXT_STYLES.map(style => {
+            const isOn = style.id === text
+            return (
+              <Box
+                key={`text-card-${style.id}`}
+                flexDirection="column"
+                gap={1}
+                padding={1}
+                flexGrow={1}
+                borderStyle="round"
+                borderColor={isOn ? 'cyan' : 'gray'}
+              >
+                <Box flexDirection="row" gap={1}>
+                  <Text bold>{style.name}</Text>
+                  {isOn && <Text color="cyan">● active</Text>}
+                </Box>
+                {style.id === 'mono' ? (
+                  <Text mono>
+                    <Text mono color={accent}>{'❯ '}</Text>
+                    <Text mono dimColor>{'make it darker'}</Text>
+                  </Text>
+                ) : (
+                  <Text dimColor>{'make it darker'}</Text>
+                )}
+                <Button
+                  key={`text-${style.id}`}
+                  label={isOn ? 'In use' : 'Use this style'}
+                  variant={isOn ? 'secondary' : 'primary'}
+                  onPress={() => {
+                    void setText($, style.id, true)
+                  }}
+                />
+              </Box>
+            )
+          })}
+        </Box>
+
         <Text bold>Choose a look</Text>
         <Text dimColor>
           {THEMES.length} themes. Tip: /looks {'<name>'} switches without opening this.
@@ -132,7 +218,6 @@ export const register: Register = on => {
                   alt={`Preview of ${theme.name}`}
                   width={260}
                   height={140}
-                  isInteractive
                 />
               ) : (
                 <Box flexDirection="row">

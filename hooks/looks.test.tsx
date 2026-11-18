@@ -93,6 +93,66 @@ test('a choice saved by the old version (palette/scene/text) carries over', asyn
   })
 
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
-  expect(stored.active).toBe('hypr-mono')
+  expect(stored.active).toBe('hypr-night')
+  expect(stored.text).toBe('mono')
   expect(stored.settings).toBe(undefined)
+})
+
+test('the old "Hypr Night · Monospace" choice becomes Hypr Night + Monospace text', async ($, on) => {
+  const stored: Record<string, unknown> = { active: 'hypr-mono' }
+  on('command.register', () => ({ value: { command: 'looks' } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('theme.set', () => ({ value: { isDrawn: true, requestId: 'r1' } }))
+  on('store.get', (_, e) => ({ value: stored[e.key] }))
+  on('store.set', (_, e) => {
+    stored[e.key] = e.value
+    return { value: undefined }
+  })
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  expect(stored.active).toBe('hypr-night')
+  expect(stored.text).toBe('mono')
+})
+
+test('/looks mono and /looks normal switch the text style for any theme', async ($, on) => {
+  const stored: Record<string, unknown> = {}
+  let themeSets = 0
+  on('command.register', () => ({ value: { command: 'looks' } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('theme.set', () => {
+    themeSets++
+    return { value: { isDrawn: true, requestId: 'r1' } }
+  })
+  on('store.get', (_, e) => ({ value: stored[e.key] }))
+  on('store.set', (_, e) => {
+    stored[e.key] = e.value
+    return { value: undefined }
+  })
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  const run = (args: string) => $.command.run({ command: 'looks', args } as Parameters<typeof $.command.run>[0])
+
+  expect((await run('sakura-night')).text).toBe('Look set: Sakura Night')
+  expect((await run('mono')).text).toBe('Text style: Monospace')
+  expect(stored.text).toBe('mono')
+  expect(stored.active).toBe('sakura-night')
+  expect((await run('normal')).text).toBe('Text style: Normal font')
+  expect(stored.text).toBe('normal')
+  // Switching the text style never changes the theme.
+  expect(themeSets).toBe(1)
+})
+
+test('the picker offers both text styles and a press switches them', async ($, on) => {
+  const stored: Record<string, unknown> = {}
+  on('store.set', (_, e) => {
+    stored[e.key] = e.value
+    return { value: undefined }
+  })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect((await ui.find({ type: 'Text', text: 'Normal font' }))?.text).toBe('Normal font')
+  expect((await ui.find({ type: 'Text', text: 'Monospace' }))?.text).toBe('Monospace')
+  await ui.press({ key: 'text-mono' })
+  expect(stored.text).toBe('mono')
+  await ui.unmount()
 })

@@ -15,12 +15,19 @@ export type PreviewPalette = {
 
 const W = 260
 const H = 140
+/** Scenes longer than this get a simple glow card instead of the full art. */
+const MAX_ART = 25000
 
 /** A 260x140 card: optional scene art behind a little pixel chat window. */
 export function previewCard(p: PreviewPalette, art?: string): string {
   // The scene keeps its own viewBox, so art drawn at any size fills the card.
-  const bg = art === undefined
-    ? `<rect width="${W}" height="${H}" fill="${p.page}"/>`
+  // A very large scene is left out: the picker draws every card at once, and
+  // several big scenes together leave the panel blank in the app. Those cards
+  // get a soft glow in the theme's accent instead.
+  const bg = art === undefined || art.length > MAX_ART
+    ? `<defs><radialGradient id="pv-glow" cx=".72" cy=".35" r=".7"><stop offset="0" stop-color="${p.accent}" stop-opacity=".35"/><stop offset="1" stop-color="${p.accent}" stop-opacity="0"/></radialGradient></defs>` +
+      `<rect width="${W}" height="${H}" fill="${p.page}"/>` +
+      (art === undefined ? '' : `<rect width="${W}" height="${H}" fill="url(#pv-glow)"/>`)
     : art.replace(/^\s*<svg /, `<svg x="0" y="0" width="${W}" height="${H}" `)
   const line = (x: number, y: number, w: number, c: string) =>
     `<rect x="${x}" y="${y}" width="${w}" height="4" fill="${c}"/>`

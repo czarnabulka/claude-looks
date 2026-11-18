@@ -3,13 +3,13 @@ import { ACCENT, AMBER, TERMINAL_LOOK, TERMINAL_PROBLEMS } from '../terminal'
 import { previewCard } from './preview'
 import type { LookTheme } from './types'
 
-// The two looks that draw the chat as a terminal (monospace messages, a
-// band above the prompt), plus Hypr Night with normal text.
+// Terminal and Hypr Night. Either can be drawn with normal or monospace text:
+// that is the picker's separate "Text style" choice.
 
 export const terminal: LookTheme = {
   id: 'terminal',
   name: 'Terminal',
-  tagline: 'Plain near-black, soft grey, one coral accent. Everything monospace.',
+  tagline: 'Plain near-black, soft grey, one coral accent. Best with Monospace text.',
   aliases: ['graphite'],
   look: TERMINAL_LOOK,
   mono: { accent: ACCENT, label: AMBER, name: 'terminal' },
@@ -43,19 +43,8 @@ export const hyprNight: LookTheme = {
   tagline: 'Misty moonlit ridges, a floating top bar, a cyan-to-lavender window border.',
   aliases: ['hypr', 'night', 'cyan'],
   look: { colors: hypr.theme, backdrop: { scene: 'hypr-night' } },
-  scene: HYPR_SCENE,
-  preview: previewCard(HYPR_CARD, HYPR_SCENE),
-  swatch: HYPR_SWATCH,
-  problems: hypr.problems,
-}
-
-export const hyprMono: LookTheme = {
-  id: 'hypr-mono',
-  name: 'Hypr Night · Monospace',
-  tagline: 'Hypr Night with the chat drawn as a terminal.',
-  // Draws Hypr Night's scene: the Backdrop hook finds it by that theme's id.
-  look: { colors: hypr.theme, backdrop: { scene: 'hypr-night' } },
   mono: { accent: HYPR_ACCENT, label: HYPR_LAVENDER, name: 'hypr' },
+  scene: HYPR_SCENE,
   preview: previewCard(HYPR_CARD, HYPR_SCENE),
   swatch: HYPR_SWATCH,
   problems: hypr.problems,

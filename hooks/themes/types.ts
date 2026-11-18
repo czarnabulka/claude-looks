@@ -21,7 +21,10 @@ export type LookTheme = {
   swatch: string[]
   /** Other words `/looks <word>` accepts for this theme. */
   aliases?: string[]
-  /** Set for themes that draw the chat as a terminal: monospace messages and a band above the prompt. */
+  /**
+   * Colors for the Monospace text style (the `❯`/`●` markers and the band
+   * above the prompt). Optional: without it they come from `swatch`.
+   */
   mono?: { accent: string; label: string; name: string }
   /** Contrast notes from makeColors, surfaced while developing. */
   problems?: string[]
