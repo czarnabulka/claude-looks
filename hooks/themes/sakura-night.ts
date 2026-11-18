@@ -117,19 +117,27 @@ function scene(): string {
     )
   }
 
-  // Falling petals: each drifts down and left while tumbling
+  // Falling petals: each drifts down and left while tumbling. Timing comes
+  // from classes in the stylesheet (fd = fall speed, sp = spin speed,
+  // dl = start offset), so nothing depends on inline style attributes.
   for (let i = 0; i < 42; i++) {
     const x = (r() * 400 - 20).toFixed(1)
-    const delay = (-r() * 14).toFixed(2)
-    const dur = (9 + r() * 7).toFixed(2)
-    const spin = (2 + r() * 3).toFixed(2)
+    const dl = Math.floor(r() * 14)
+    const fd = Math.floor(r() * 5)
+    const sp = Math.floor(r() * 5)
     const s = (0.6 + r() * 0.8).toFixed(2)
     const fill = PINKS[Math.floor(r() * PINKS.length)] ?? '#ffc4d8'
     const lane = i % 3
     parts.push(
-      `<g transform="translate(${x} -12)"><g class="fall f${lane}" style="animation-duration:${dur}s;animation-delay:${delay}s"><g class="tumble" style="animation-duration:${spin}s;animation-delay:${delay}s"><use href="#pe" fill="${fill}" transform="scale(${s})"/></g></g></g>`,
+      `<g transform="translate(${x} -12)"><g class="fall f${lane} fd${fd} dl${dl}"><g class="tumble sp${sp} dl${dl}"><use href="#pe" fill="${fill}" transform="scale(${s}) translate(-3 0)"/></g></g></g>`,
     )
   }
+
+  const timing = [
+    ...[9, 10.75, 12.5, 14.25, 16].map((d, i) => `.fd${i}{animation-duration:${d}s}`),
+    ...[2, 2.75, 3.5, 4.25, 5].map((d, i) => `.sp${i}{animation-duration:${d}s}`),
+    ...Array.from({ length: 14 }, (_, i) => `.dl${i}{animation-delay:-${i}s}`),
+  ].join('')
 
   const css = `
 .tw{animation:tw 4s ease-in-out infinite}
@@ -145,13 +153,14 @@ function scene(): string {
 @keyframes sway2{from{transform:rotate(1.5deg)}to{transform:rotate(-1.5deg)}}
 .bob{animation:bob 6s ease-in-out infinite alternate}
 @keyframes bob{from{transform:translateY(-.6px)}to{transform:translateY(.6px)}}
-.fall{animation-name:fall0;animation-timing-function:linear;animation-iteration-count:infinite}
+.fall{animation:fall0 12s linear infinite}
 .f1{animation-name:fall1}.f2{animation-name:fall2}
 @keyframes fall0{0%{transform:translate(0,0);opacity:0}6%{opacity:.95}25%{transform:translate(-14px,50px)}50%{transform:translate(-6px,100px)}75%{transform:translate(-30px,150px)}92%{opacity:.9}100%{transform:translate(-40px,200px);opacity:0}}
 @keyframes fall1{0%{transform:translate(0,0);opacity:0}6%{opacity:.9}30%{transform:translate(-26px,60px)}60%{transform:translate(-18px,120px)}100%{transform:translate(-60px,200px);opacity:0}}
 @keyframes fall2{0%{transform:translate(0,0);opacity:0}6%{opacity:.85}35%{transform:translate(-8px,70px)}65%{transform:translate(-34px,130px)}100%{transform:translate(-30px,200px);opacity:0}}
-.tumble{animation-name:tumble;animation-timing-function:ease-in-out;animation-iteration-count:infinite}
+.tumble{animation:tumble 3s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
 @keyframes tumble{0%{transform:rotate(0) scaleY(1)}25%{transform:rotate(90deg) scaleY(.35)}50%{transform:rotate(180deg) scaleY(1)}75%{transform:rotate(270deg) scaleY(.35)}100%{transform:rotate(360deg) scaleY(1)}}
+${timing}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}.fall{opacity:.7}}
 `
 
